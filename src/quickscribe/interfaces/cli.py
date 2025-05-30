@@ -9,7 +9,7 @@ import os
 import time
 import signal
 from pathlib import Path
-from quickscribe_core import QuickScribeCore, DeviceType
+from ..core import QuickScribeCore, DeviceType
 
 
 class QuickScribeCLI:
@@ -92,12 +92,19 @@ class QuickScribeCLI:
             self.log(f"Using default device: {default_device.name}")
         
         # Start recording
-        success, result = self.core.start_recording(output_file)
+        # Note: The new core interface doesn't support custom output files yet
+        # For now, we'll ignore the output_file parameter and use default naming
+        if output_file:
+            self.log("Warning: Custom output file names not yet supported in new core", error=True)
+        
+        success, result = self.core.start_recording()
         if not success:
             self.log(f"Failed to start recording: {result}", error=True)
             return False
         
-        filepath = result
+        filename = result
+        # For compatibility, we need to get the full path
+        filepath = os.path.join(self.core.recorder.output_dir, filename)
         self.log(f"Recording to: {filepath}")
         
         # Set up signal handler for graceful shutdown
@@ -185,7 +192,12 @@ class QuickScribeCLI:
             if not self.quiet:
                 self.log(f"  {msg}")
         
-        success, result = self.core.transcribe_recording(filepath, progress, output_file)
+        # Note: The new core interface doesn't support custom output files yet
+        # For now, we'll ignore the output_file parameter
+        if output_file:
+            self.log("Warning: Custom transcript output files not yet supported in new core", error=True)
+        
+        success, result = self.core.transcribe_recording(filepath, progress)
         
         if success:
             self.log(f"Transcript saved: {result}")
@@ -207,8 +219,13 @@ class QuickScribeCLI:
             return False
         
         try:
-            with open(transcript_path, 'r') as f:
-                content = f.read()
+            # Try UTF-8 first, fallback if needed
+            try:
+                with open(transcript_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            except UnicodeDecodeError:
+                with open(transcript_path, 'r', encoding='utf-8', errors='replace') as f:
+                    content = f.read()
                 
                 # Skip header if present
                 if "-" * 50 in content:

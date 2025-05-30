@@ -11,10 +11,14 @@ from textual.reactive import reactive
 from textual.message import Message
 from textual import events
 from textual.timer import Timer
+from textual.screen import ModalScreen
 
-from quickscribe_core import QuickScribeCore, AudioDevice, DeviceType, Recording
+from ..core import QuickScribeCore, AudioDevice, DeviceType, Recording
 from datetime import datetime
 import asyncio
+import functools
+import logging
+import traceback
 from typing import Optional
 
 
@@ -107,6 +111,30 @@ class AudioLevelDisplay(Static):
         self.level = level
 
 
+class TranscriptModal(ModalScreen):
+    """Modal screen for viewing transcripts"""
+    
+    def __init__(self, title: str, content: str) -> None:
+        super().__init__()
+        self.title = title
+        self.content = content
+    
+    def compose(self) -> ComposeResult:
+        """Create the modal layout"""
+        with Container(id="transcript-modal"):
+            yield Label(self.title, id="transcript-title")
+            yield ScrollableContainer(
+                Static(self.content, id="transcript-content"),
+                id="transcript-container"
+            )
+            yield Label("Press ESC or Q to close", id="transcript-help")
+    
+    def on_key(self, event) -> None:
+        """Handle key presses"""
+        if event.key in ("escape", "q"):
+            self.dismiss()
+
+
 class QuickScribeTUI(App):
     """Main TUI Application"""
     
@@ -138,13 +166,47 @@ class QuickScribeTUI(App):
         background: $boost;
         color: red;
     }
+    
+    #transcript-modal {
+        width: 80%;
+        height: 80%;
+        border: solid blue;
+        background: $surface;
+        margin: 2;
+        padding: 1;
+    }
+    
+    #transcript-title {
+        text-align: center;
+        background: $primary;
+        color: $text;
+        padding: 1;
+        margin-bottom: 1;
+    }
+    
+    #transcript-container {
+        height: 1fr;
+        border: solid $primary;
+        padding: 1;
+    }
+    
+    #transcript-content {
+        padding: 1;
+    }
+    
+    #transcript-help {
+        text-align: center;
+        background: $accent;
+        color: $text;
+        padding: 1;
+        margin-top: 1;
+    }
     """
     
     BINDINGS = [
         ("space", "toggle_recording", "Start/Stop Recording"),
-        ("t", "transcribe_latest", "Transcribe Latest"),
+        ("enter", "select_focused_item", "View/Transcribe Recording"),
         ("r", "refresh_devices", "Refresh Devices"),
-        ("enter", "select_focused_item", "Select Item"),
         ("j,down", "move_down", "Move Down"),
         ("k,up", "move_up", "Move Up"),
         ("tab", "focus_next", "Next Pane"),
@@ -157,6 +219,13 @@ class QuickScribeTUI(App):
         self.core = QuickScribeCore()
         self.selected_device: Optional[AudioDevice] = None
         self.update_timer: Optional[Timer] = None
+        
+        # Set up logging
+        logging.basicConfig(
+            filename=f"{self.core.recorder.output_dir}/quickscribe_errors.log",
+            level=logging.ERROR,
+            format='%(asctime)s - %(levelname)s - %(message)s'
+        )
         
     def compose(self) -> ComposeResult:
         """Create app layout"""
@@ -267,10 +336,13 @@ class QuickScribeTUI(App):
                 self.select_device(item.device)
         
         elif event.list_view.id == "recordings-list":
-            # Recording selected - transcribe it
+            # Recording selected - view transcript if exists, otherwise transcribe
             item = event.item
             if isinstance(item, RecordingItem):
-                await self.transcribe_recording(item.recording)
+                if item.recording.has_transcript:
+                    await self.view_transcript_for_recording(item.recording)
+                else:
+                    await self.transcribe_recording(item.recording)
     
     async def action_toggle_recording(self) -> None:
         """Start or stop recording"""        
@@ -294,14 +366,6 @@ class QuickScribeTUI(App):
             else:
                 self.notify(f"Failed to stop: {filepath}", severity="error")
     
-    async def action_transcribe_latest(self) -> None:
-        """Transcribe the latest recording"""
-        recordings = self.core.get_recordings()
-        if not recordings:
-            self.notify("No recordings found", severity="warning")
-            return
-        
-        await self.transcribe_recording(recordings[0])
     
     async def transcribe_recording(self, recording: Recording) -> None:
         """Transcribe a specific recording"""
@@ -311,21 +375,42 @@ class QuickScribeTUI(App):
         
         self.notify(f"Transcribing {recording.filename}...")
         
-        # Run transcription in background
-        def progress(msg: str):
-            self.call_from_thread(self.notify, msg)
-        
-        success, result = await asyncio.to_thread(
-            self.core.transcribe_recording,
-            recording.filepath,
-            progress
-        )
-        
-        if success:
-            self.notify("Transcription complete!", severity="success")
-            await self.refresh_recordings()
-        else:
-            self.notify(f"Transcription failed: {result}", severity="error")
+        try:
+            # Run transcription in separate subprocess to avoid TUI fd conflicts
+            import subprocess
+            import sys
+            
+            # Use the CLI to do transcription in a clean subprocess
+            cmd = [
+                sys.executable, "-m", "quickscribe.interfaces.cli", 
+                "transcribe", recording.filepath
+            ]
+            
+            self.notify("Running transcription in background...")
+            
+            # Run with proper subprocess isolation
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=None,  # Clean environment
+                cwd=None   # Clean working directory
+            )
+            
+            stdout, stderr = await process.communicate()
+            
+            if process.returncode == 0:
+                self.notify("Transcription complete!", severity="success")
+                await self.refresh_recordings()
+            else:
+                error_output = stderr.decode('utf-8', errors='replace')
+                self.notify(f"Transcription failed: {error_output}", severity="error")
+                logging.error(f"Subprocess transcription failed: {error_output}")
+                
+        except Exception as e:
+            error_msg = f"Transcription error: {str(e)} (Type: {type(e).__name__})"
+            logging.error(f"{error_msg}\nTraceback: {traceback.format_exc()}")
+            self.notify(error_msg, severity="error")
     
     async def action_refresh_devices(self) -> None:
         """Refresh device list"""
@@ -364,6 +449,38 @@ class QuickScribeTUI(App):
         if focused and isinstance(focused, ListView):
             focused.action_cursor_up()
     
+    
+    async def view_transcript_for_recording(self, recording) -> None:
+        """View transcript content for a recording"""
+        if not recording.has_transcript or not recording.transcript_path:
+            self.notify("No transcript available", severity="warning")
+            return
+        
+        try:
+            # Try UTF-8 first, fallback to other encodings if needed
+            try:
+                with open(recording.transcript_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            except UnicodeDecodeError:
+                # Fallback to latin-1 or errors='replace'
+                with open(recording.transcript_path, 'r', encoding='utf-8', errors='replace') as f:
+                    content = f.read()
+            
+            # Skip header if present
+            if "-" * 50 in content:
+                parts = content.split("-" * 50, 2)
+                if len(parts) >= 2:
+                    content = parts[1].strip()
+            
+            # Show transcript in a modal
+            modal = TranscriptModal(
+                title=f"Transcript: {recording.filename}",
+                content=content
+            )
+            await self.push_screen(modal)
+        except Exception as e:
+            self.notify(f"Error reading transcript: {e}", severity="error")
+
 
 
 def main():
