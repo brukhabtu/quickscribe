@@ -1,0 +1,23 @@
+[project]
+name = "quickscribe"
+version = "0.1.0"
+description = "A simple, privacy-focused meeting recorder and transcriber"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "sounddevice>=0.4.6",
+    "openai-whisper>=20231117",
+    "soundfile>=0.12.1",
+    "numpy>=1.21.0,<2.0",
+    "textual>=0.79.0",
+]
+
+[project.scripts]
+quickscribe = "quickscribe:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = []
