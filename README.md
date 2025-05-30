@@ -1,174 +1,188 @@
 # QuickScribe
 
-A simple, privacy-focused CLI meeting recorder and transcriber for macOS.
+A simple, privacy-focused meeting recorder and transcriber for macOS. Perfect for engineering managers who need meeting notes but can't rely on host-enabled recordings or easy transcript downloads.
 
-## Features
+## ✨ Features
 
-- 🎙️ Quick recording with simple Enter key to stop
-- 🖥️ Record system audio from Zoom, Teams, etc.
-- 🎤 Select any audio input device
-- 🤖 Local AI transcription using OpenAI Whisper
-- 🔒 Complete privacy - nothing sent to external servers
-- 📁 Automatic file organization with timestamps
-- 💻 Clean command-line interface
-- 🚀 No GUI dependencies - works on any system
+- 🎙️ **One-click recording** - Space to start/stop, Enter to transcribe/view
+- 🖥️ **Record system audio** from Zoom, Teams, etc. without host permissions
+- 🎤 **Select any audio input** device (microphone, virtual devices)
+- 🤖 **Local AI transcription** using OpenAI Whisper (same tech as ChatGPT voice)
+- 🔒 **Complete privacy** - nothing sent to external servers, all processing local
+- 📁 **Smart file organization** - auto-saves to `~/.quickscribe/` with timestamps
+- 💻 **Clean TUI + CLI interfaces** - both interactive and scriptable modes
+- 🚀 **No GUI dependencies** - works on any terminal, perfect for engineers
 
-## Installation
+## 🚀 Quick Start
 
-1. **Install system dependencies:**
+1. **Install dependencies:**
    ```bash
    # Install ffmpeg (required for audio processing)
    brew install ffmpeg
-   ```
-
-2. **Install uv** (if you don't have it):
-   ```bash
+   
+   # Install uv (modern Python package manager)
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
-3. **Navigate to the project directory:**
+2. **Clone and setup:**
    ```bash
+   git clone https://github.com/brukhabtu/quickscribe.git
    cd quickscribe
-   ```
-
-4. **Install Python dependencies:**
-   ```bash
    uv sync
    ```
 
-## Usage
-
-```bash
-# Interactive TUI mode (default)
-uv run quickscribe
-
-# Simple CLI mode
-uv run quickscribe --cli
-```
-
-### Quick Recording (TUI Mode)
-1. Run `uv run quickscribe`
-2. Use arrow keys or j/k to navigate
-3. Press Space to start/stop recording
-4. Press Enter to select items
-5. Press 't' to transcribe latest recording
-
-### CLI Mode
-```bash
-# List available audio devices
-uv run python quickscribe_cli.py devices
-
-# Start recording (Ctrl+C to stop)
-uv run python quickscribe_cli.py record
-
-# Record for 5 minutes and auto-transcribe
-uv run python quickscribe_cli.py record --duration 300 --auto-transcribe
-
-# List recordings
-uv run python quickscribe_cli.py list
-
-# Transcribe a specific file
-uv run python quickscribe_cli.py transcribe ~/.quickscribe/meeting_20240529_143022.wav
-
-# Show transcript content
-uv run python quickscribe_cli.py show ~/.quickscribe/meeting_20240529_143022.wav
-```
-
-### TUI Controls
-- **Space** - Start/Stop recording
-- **Enter** - Select highlighted item
-- **t** - Transcribe latest recording
-- **r** - Refresh device list
-- **j/k or ↑/↓** - Navigate lists
-- **Tab/Shift+Tab** - Switch between panels
-- **q** - Quit application
-
-### Recording Virtual Meetings (Zoom, Teams, etc.)
-
-QuickScribe can now automatically set up system audio recording!
-
-#### Easy Setup (Recommended)
-1. Run QuickScribe and select **option 6** - "Setup system audio recording"
-2. Follow the guided setup to install BlackHole and configure audio routing
-3. Select **option 5** and choose "BlackHole 2ch" as your input device
-4. Start recording!
-
-#### Manual Setup
-If you prefer manual configuration:
-
-1. **Install BlackHole** (free virtual audio driver):
+3. **Start recording meetings:**
    ```bash
-   brew install blackhole-2ch
+   uv run quickscribe
    ```
 
-2. **For System Audio Only:**
-   - Set system output to "BlackHole 2ch" 
-   - You won't hear audio while recording
+## 🎯 Usage
 
-3. **For Audio Monitoring (hear while recording):**
-   - Create a multi-output device in Audio MIDI Setup
-   - Include both BlackHole and your headphones/speakers
-   - Set this as your system output
+### Interactive TUI (Recommended)
+```bash
+uv run quickscribe
+```
 
-#### Pro Tips
-- QuickScribe automatically detects BlackHole and suggests it for system audio
-- Files are named with "_system" suffix when using BlackHole
-- Original audio settings are restored when you exit QuickScribe
+**Smart controls:**
+- **Space** - Start/Stop recording
+- **Enter** - View transcript (if exists) OR start transcription (if not)
+- **Tab** - Switch between device selection and recordings
+- **j/k or ↑/↓** - Navigate lists
+- **r** - Refresh devices
+- **q** - Quit
 
-## How it works
+### Command Line Interface
+```bash
+# List available audio devices
+uv run quickscribe devices
 
-1. Choose "Start new recording" from the menu
-2. Press Enter to stop recording
-3. Your audio is saved with a timestamp
-4. Choose to transcribe immediately or later
-5. Transcripts are saved as text files alongside the audio
+# Start recording (Ctrl+C to stop)
+uv run quickscribe record
 
-## File Storage
+# Record for 5 minutes and auto-transcribe
+uv run quickscribe record --duration 300 --auto-transcribe
 
-All recordings are automatically saved to `~/.quickscribe/` in your home directory:
+# List recordings with transcript status
+uv run quickscribe list
+
+# Transcribe a specific file
+uv run quickscribe transcribe ~/.quickscribe/meeting_20240529_143022.wav
+
+# View transcript content
+uv run quickscribe show ~/.quickscribe/meeting_20240529_143022.wav
+```
+
+## 🎬 Recording Virtual Meetings
+
+### For Zoom, Teams, Discord, etc.
+
+**Option 1: Automatic Setup (Recommended)**
+1. Install BlackHole: `brew install blackhole-2ch`
+2. Run QuickScribe, select "BlackHole 2ch" as input device
+3. Set your Mac's audio output to BlackHole (you won't hear audio while recording)
+
+**Option 2: Monitor While Recording**
+1. Open Audio MIDI Setup (in Applications/Utilities)
+2. Create a "Multi-Output Device" 
+3. Check both BlackHole and your speakers/headphones
+4. Set this multi-output as your system audio output
+5. Select BlackHole as input in QuickScribe
+
+**Pro Tips:**
+- QuickScribe auto-detects BlackHole and labels it clearly
+- System audio recordings get "_system" suffix automatically
+- Works with any meeting app - no plugins or permissions needed
+
+## 📁 File Organization
+
+All recordings auto-save to `~/.quickscribe/`:
 
 ```
 ~/.quickscribe/
 ├── meeting_20240529_143022.wav           # Microphone recording
-├── meeting_20240529_143022_transcript.txt # Generated transcript
-├── meeting_20240529_160230_system.wav    # System audio recording
+├── meeting_20240529_143022_transcript.txt # AI-generated transcript
+├── meeting_20240529_160230_system.wav    # System audio (Zoom/Teams)
 ├── meeting_20240529_160230_system_transcript.txt
-└── ...
+└── quickscribe_errors.log                # Debug logs (if needed)
 ```
 
-**File naming convention:**
-- `meeting_YYYYMMDD_HHMMSS.wav` - Microphone recordings
-- `meeting_YYYYMMDD_HHMMSS_system.wav` - System audio (BlackHole)
-- `meeting_YYYYMMDD_HHMMSS_app.wav` - App-specific virtual devices
-- `*_transcript.txt` - Generated transcripts
+**Naming Convention:**
+- `meeting_YYYYMMDD_HHMMSS.wav` - Microphone recordings  
+- `meeting_YYYYMMDD_HHMMSS_system.wav` - System audio recordings
+- `*_transcript.txt` - AI-generated transcripts
 
-## System Requirements
+## 🔧 System Requirements
 
-- macOS with Python 3.9+
-- FFmpeg (install with `brew install ffmpeg`)
-- Microphone access permissions
-- ~1GB free space for Whisper model (downloaded on first run)
+- **macOS** with Python 3.9+
+- **FFmpeg** (`brew install ffmpeg`)
+- **Microphone permissions** (System Settings → Privacy & Security → Microphone)
+- **~1GB free space** for Whisper AI model (auto-downloaded on first use)
 
-## Important Notes
+## 🛡️ Privacy & Security
 
-- **Privacy First**: All processing happens locally - your audio never leaves your computer
-- **First Run**: Downloads the Whisper "base" model (~140MB) automatically
-- **Model Selection**: Edit `quickscribe_core.py` to use "small", "medium", or "large" models for better accuracy
-- **Storage**: Recordings are saved to `~/.quickscribe/` and persist between sessions
-- **Permissions**: Requires microphone access permissions in System Settings
+- **100% local processing** - your audio never leaves your computer
+- **No cloud services** - no OpenAI API calls, no external transcription services
+- **No telemetry** - zero data collection or tracking
+- **Open source** - audit the code yourself
 
-## Development
+## ⚡ Performance
 
-To add new dependencies:
+- **Whisper "base" model** (~140MB) - good balance of speed/accuracy
+- **~2-3x realtime transcription** on Apple Silicon Macs
+- **Handles 1+ hour meetings** easily
+- **Upgrade to "small"/"medium"/"large"** models in `src/quickscribe/core/transcriber.py` for better accuracy
+
+## 🔨 Development
+
+This project uses modern Python packaging with UV:
+
 ```bash
+# Add dependencies
 uv add package-name
-```
 
-To update dependencies:
-```bash
+# Update dependencies  
 uv sync --upgrade
+
+# Run tests
+uv run pytest  # (when tests are added)
+
+# Build package
+uv build
 ```
 
-## Troubleshooting
+**Architecture:**
+- `src/quickscribe/core/` - Business logic (recording, transcription, device management)
+- `src/quickscribe/interfaces/` - User interfaces (TUI and CLI)
+- `src/quickscribe/utils/` - Utilities (audio setup helpers)
 
-If you get permission errors, make sure Python has microphone access in System Preferences > Security & Privacy > Privacy > Microphone.
+## 🤝 Contributing
+
+This tool was built to solve a real problem for engineering teams. If you have suggestions or improvements:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## 🙋‍♂️ Use Cases
+
+**Perfect for:**
+- Engineering managers who need meeting notes but hosts don't enable recording
+- 1:1s, team syncs, and planning meetings where you want searchable transcripts
+- Recording your own presentations or demos for later review
+- Backup recordings when you can't trust the primary recording setup
+
+**Engineering-friendly features:**
+- Terminal-based interface (no GUI bloat)
+- Keyboard-driven workflow
+- Local processing (no dependencies on external services)
+- Clean, organized file output
+- Scriptable CLI for automation
+
+## 📜 License
+
+MIT License - see LICENSE file for details.
+
+---
+
+**Built with ❤️ for engineering teams who value privacy and local control.**
